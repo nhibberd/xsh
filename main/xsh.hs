@@ -22,8 +22,6 @@ data Command =
 
 main :: IO ()
 main = do
-  IO.hSetBuffering stdout LineBuffering
-  IO.hSetBuffering stderr LineBuffering
   Options.execParser (Options.info (parser <**> Options.helper) Options.idm) >>= go
 
 parser :: Options.Parser Command

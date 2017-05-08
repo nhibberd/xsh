@@ -7,6 +7,7 @@ module Xsh.Interpretter (
 import qualified Control.Concurrent.Async as Async
 
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import qualified System.Directory as Directory
 import           System.Exit (ExitCode (..))
@@ -91,15 +92,18 @@ runCommand i o e command =
   case command of
     Command [] ->
       pure ExitSuccess
-    -- PHASE 2: ADD BUILT INS
-    Command [Word [cd], Word [dir]] -> do
-      case renderPart cd == "cd" of
+    Command [Word [UnquotedPart [TextFragment "cd"]], Word [UnquotedPart [TextFragment dir]]] -> do
+      path <- Directory.makeAbsolute $ T.unpack dir
+      ex <- Directory.doesDirectoryExist path
+      case ex of
         True -> do
-          Directory.setCurrentDirectory (T.unpack $ renderPart dir)
+          Directory.setCurrentDirectory path
           pure ExitSuccess
+        False -> do
+          T.hPutStr e "What are you doing."
+          T.hPutStr o "\n"
+          pure $ ExitFailure 1
 
-        False ->
-          pure ExitSuccess
 
     Command (a:as) -> do
       -- NOTE: expand semantics assume a 1-1 atom mapping, this is a simplification
