@@ -8,6 +8,7 @@ import qualified Control.Concurrent.Async as Async
 
 import qualified Data.Text as T
 
+import qualified System.Directory as Directory
 import           System.Exit (ExitCode (..))
 import           System.IO (IO, Handle)
 import qualified System.Process as Process
@@ -36,7 +37,27 @@ interpret i o e program = do
 --
 runList :: Handle -> Handle -> Handle -> List -> IO ExitCode
 runList i o e list =
-  error "TODO: runList"
+  case list of
+    SingletonList p ->
+      runPipeline i o e p
+
+    AndList l p -> do
+      ec <- runList i o e l
+      case ec of
+        ExitSuccess ->
+          runPipeline i o e p
+
+        ExitFailure er ->
+          pure $ ExitFailure er
+
+    OrList l p -> do
+      ec <- runList i o e l
+      case ec of
+        ExitSuccess ->
+          pure ExitSuccess
+
+        ExitFailure _er ->
+          runPipeline i o e p
 
 --
 -- BASELINE EXERCISE 16.
@@ -54,7 +75,13 @@ runList i o e list =
 --
 runPipeline :: Handle -> Handle -> Handle -> Pipeline -> IO ExitCode
 runPipeline i o e pipeline =
-  error "TODO: runPipeline"
+  case pipeline of
+    SingletonPipeline c ->
+      runCommand i o e c
+    CompoundPipeline p c -> do
+      (read, write) <- Process.createPipe
+      (_ea, eb) <- Async.concurrently (runPipeline i write e p) (runCommand read o e c)
+      pure eb
 
 --
 -- Execute the specified command.
@@ -65,6 +92,15 @@ runCommand i o e command =
     Command [] ->
       pure ExitSuccess
     -- PHASE 2: ADD BUILT INS
+    Command [Word [cd], Word [dir]] -> do
+      case renderPart cd == "cd" of
+        True -> do
+          Directory.setCurrentDirectory (T.unpack $ renderPart dir)
+          pure ExitSuccess
+
+        False ->
+          pure ExitSuccess
+
     Command (a:as) -> do
       -- NOTE: expand semantics assume a 1-1 atom mapping, this is a simplification
       --       it matches zsh non ${=...} expansion, but does not match normal POSIX.
@@ -75,7 +111,8 @@ runCommand i o e command =
         , Process.std_err = Process.UseHandle e
         -- NOTE: this is critical, the forked process will have a reference to the
         --       pipe and it would never otherwise be closed in the child. This means
-        --       the final process in the pipeline would hang forever waiting for the            --       EOF on the pipe. If you choose to re-implement your own fork-exec,
+        --       the final process in the pipeline would hang forever waiting for the
+        --       EOF on the pipe. If you choose to re-implement your own fork-exec,
         --       be aware of this.
         , Process.close_fds = True
         }

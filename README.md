@@ -44,7 +44,6 @@ initial base and extending it in an interesting direction.
 Initial baseline
 ----------------
 
-
 ```
 grep -R 'BASELINE' src
 ```
