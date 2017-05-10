@@ -61,6 +61,9 @@ data Token =
   | OrToken
   | StatementToken
   | PipeToken
+  | RaceToken
+  | OpenParen
+  | CloseParen
     deriving (Eq, Show, Ord)
 
 renderToken :: Token -> Text
@@ -76,6 +79,12 @@ renderToken t =
       ";"
     PipeToken ->
       "|"
+    RaceToken ->
+      "<|>"
+    OpenParen ->
+      "("
+    CloseParen ->
+      ")"
 
 data Word =
     Word [Part]
@@ -139,17 +148,19 @@ data Positioned a =
 
 data Command =
     Command [Word]
+  | SubProgram Program
     deriving (Eq, Show)
 
 data Pipeline =
     SingletonPipeline Command
   | CompoundPipeline Pipeline Command
+  | RacePipeline Pipeline Command
     deriving (Eq, Show)
 
 data List =
-    SingletonList Pipeline
-  | AndList List Pipeline
-  | OrList List Pipeline
+    SingletonList Pipeline -- foo
+  | AndList List Pipeline  -- foo && bar
+  | OrList List Pipeline   -- foo || bar
     deriving (Eq, Show)
 
 data Program =

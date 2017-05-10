@@ -23,7 +23,6 @@ import           Xsh.Data
 import qualified Xsh.Lexer as Lexer
 import           Xsh.Prelude
 
-
 --
 -- A convienience function to lex and parse a program.
 --
@@ -83,6 +82,7 @@ list' x =
       expect AndToken
       p <- pipeline
       list' $ AndList x p
+
   in
     Mega.choice [orr, andd, pure x]
 
@@ -104,8 +104,15 @@ pipeline' x =
       expect PipeToken
       c <- command
       pipeline' $ CompoundPipeline x c
+
+    race = do
+      expect RaceToken
+      c <- command
+      pipeline' $ RacePipeline x c
+
   in
-    Mega.choice [foo, pure x]
+
+    Mega.choice [foo, race, pure x]
 
 --
 -- BASELINE EXERCISE 13.
@@ -115,7 +122,10 @@ pipeline' x =
 --
 command :: Parser Command
 command =
-  Command <$> some word
+  Mega.choice [
+      SubProgram <$> (expect OpenParen *> program <* expect CloseParen)
+    , Command <$> some word
+    ]
 
 --
 -- BASELINE EXERCISE 12.

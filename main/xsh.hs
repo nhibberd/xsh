@@ -61,7 +61,8 @@ interactive = do
             Left msg ->
               IO.putStrLn msg
             Right ast -> do
-              void $ Interpretter.interpret IO.stdin IO.stdout IO.stderr ast
+              ec <- Interpretter.interpret IO.stdin IO.stdout IO.stderr ast
+              IO.print $ show ec
           loop
 
   Haskeline.runInputT Haskeline.defaultSettings loop

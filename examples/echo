@@ -7,3 +7,5 @@ world'
 
 echo hello \
 world
+
+(sleep 1; exit 12) <|> (sleep 1; exit 1)

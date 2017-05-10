@@ -6,6 +6,7 @@ module Xsh.Interpretter (
 
 import qualified Control.Concurrent.Async as Async
 
+import           Text.Read (read)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
@@ -18,12 +19,14 @@ import           Xsh.Data
 import           Xsh.Prelude
 import qualified Xsh.Expansion as Expansion
 
+import           Debug.Trace
+
 --
 -- Given the handles for input, output and error, interpret this program.
 --
 interpret :: Handle -> Handle -> Handle -> Program -> IO ExitCode
 interpret i o e program = do
-  case program of
+  case trace ("program: " <> show program) program of
     Program [] ->
       pure ExitSuccess
     Program (x:[]) ->
@@ -60,6 +63,8 @@ runList i o e list =
         ExitFailure _er ->
           runPipeline i o e p
 
+
+
 --
 -- BASELINE EXERCISE 16.
 --
@@ -84,6 +89,17 @@ runPipeline i o e pipeline =
       (_ea, eb) <- Async.concurrently (runPipeline i write e p) (runCommand read o e c)
       pure eb
 
+    RacePipeline p c -> do
+      res <- Async.race (runPipeline i o e p) (runCommand i o e c)
+      case res of
+        Left ec -> do
+          T.hPutStr o "left.\n"
+          pure ec
+        Right ec -> do
+          T.hPutStr o "right.\n"
+          pure ec
+
+
 --
 -- Execute the specified command.
 --
@@ -104,12 +120,18 @@ runCommand i o e command =
           T.hPutStr o "\n"
           pure $ ExitFailure 1
 
+    Command [Word [UnquotedPart [TextFragment "exit"]], Word [UnquotedPart [TextFragment i]]] -> do
+      case i of
+        "0" -> do
+          pure ExitSuccess
+        _ -> do
+          pure $ ExitFailure (read $ T.unpack i)
 
     Command (a:as) -> do
       -- NOTE: expand semantics assume a 1-1 atom mapping, this is a simplification
       --       it matches zsh non ${=...} expansion, but does not match normal POSIX.
       --       This is saner but possibly confusing, should do something nicer.
-      (_, _, _, h) <- Process.createProcess (Process.proc (T.unpack . Expansion.expand $ a) (fmap (T.unpack . Expansion.expand) $ as)) {
+      (_, _, _, h) <- Process.createProcess (Process.proc (T.unpack . Expansion.expand $ a) (T.unpack . Expansion.expand <$> as)) {
           Process.std_in = Process.UseHandle i
         , Process.std_out = Process.UseHandle o
         , Process.std_err = Process.UseHandle e
@@ -121,3 +143,6 @@ runCommand i o e command =
         , Process.close_fds = True
         }
       Process.waitForProcess h
+
+    SubProgram p ->
+      interpret i o e p

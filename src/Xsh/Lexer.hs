@@ -29,7 +29,6 @@ import           Text.Megaparsec.Lexer (lexeme)
 import           Xsh.Data
 import           Xsh.Prelude
 
-
 --
 -- Our lexer takes a stream of characters and produces a stream of
 -- positioned tokens.
@@ -80,6 +79,9 @@ token =
     , OrToken <$ string "||"
     , StatementToken <$ string ";"
     , PipeToken <$ string "|"
+    , RaceToken <$ string "<|>"
+    , OpenParen <$ string "("
+    , CloseParen <$ string ")"
     -- effective but not the best idea "semi-colon" insertion, to make
     -- multi-statement parsing trivial at the cost of not really being
     -- able to sensibly implement "partial" parsing for multiline repl
@@ -133,6 +135,7 @@ soft =
         some . choice $ [variable, softText]
       , pure $ [TextFragment ""]
       ])
+
 --
 -- BASELINE EXERCISE 7.
 --
